@@ -4,7 +4,7 @@ export interface Visitor {
   booking_id: string | null
   checkin_time: string
   queue_number: string
-  status: 'waiting' | 'in_progress' | 'completed' | 'cancelled'
+  status: 'waiting' | 'in_progress' | 'completed' | 'cancelled' | 'survey_sent'
   notes: string | null
   created_at: string
   updated_at: string

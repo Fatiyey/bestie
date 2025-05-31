@@ -33,94 +33,71 @@
     <VDivider />
 
     <PerfectScrollbar tag="ul" class="chat-contacts-list px-3" :options="{ wheelPropagation: false }">
-      <div class="my-4">
-        <span class="text-primary text-sm font-weight-medium">CHATS</span>
+      <!-- Loading State -->
+      <div v-if="loading" class="d-flex justify-center py-4">
+        <VProgressCircular indeterminate size="24" />
       </div>
-      <li
-        v-for="contact in filteredChats"
-        :key="`chat-${contact.id}`"
-        class="chat-contact-item mb-3 pa-3 cursor-pointer"
-        :class="{ 'bg-primary': isActiveChat(contact.id) }"
-        @click="openChat(contact.id)"
-      >
-        <div class="d-flex align-center">
-          <VBadge
-            dot
-            :color="resolveAvatarBadgeVariant(contact.status)"
-            location="bottom right"
-            offset-x="3"
-            offset-y="3"
-            bordered
-            class="me-4"
-          >
-            <VAvatar 
-              size="40"
-              :color="!contact.avatar ? getAvatarColor(contact.id) : undefined"
-            >
-              <VImg v-if="contact.avatar" :src="contact.avatar" />
-              <span v-else class="text-h6">{{ getInitials(contact.fullName) }}</span>
-            </VAvatar>
-          </VBadge>
-          <div class="flex-grow-1 overflow-hidden">
-            <h6 class="text-h6 font-weight-regular" :class="{ 'text-white': isActiveChat(contact.id) }">{{ contact.fullName }}</h6>
-            <p class="mb-0 text-truncate" :class="isActiveChat(contact.id) ? 'text-white' : 'text-disabled'">
-              {{ contact.lastMessage?.message || 'No messages yet' }}
-            </p>
-          </div>
-          <div class="d-flex flex-column align-self-start">
-            <span class="text-sm mb-2" :class="isActiveChat(contact.id) ? 'text-white' : 'text-disabled'">
-              {{ contact.lastMessage?.time }}
-            </span>
-            <VBadge v-if="contact.unseenMsgs" color="error" :content="contact.unseenMsgs" inline />
-          </div>
+      
+      <!-- Chats List -->
+      <div v-else>
+        <div class="my-4">
+          <span class="text-primary text-sm font-weight-medium">CHATS</span>
         </div>
-      </li>
-
-      <div class="my-4">
-        <span class="text-primary text-sm font-weight-medium">CONTACTS</span>
-      </div>
-      <li
-        v-for="contact in filteredContacts"
-        :key="`contact-${contact.id}`"
-        class="chat-contact-item mb-3 pa-3 cursor-pointer"
-        @click="openChat(contact.id)" 
-      >
-        <div class="d-flex align-center">
-          <VBadge
-            dot
-            :color="resolveAvatarBadgeVariant(contact.status)"
-            location="bottom right"
-            offset-x="3"
-            offset-y="3"
-            bordered
-            class="me-4"
-          >
-            <VAvatar 
-              size="40"
-              :color="!contact.avatar ? getAvatarColor(contact.id) : undefined"
+        <li
+          v-for="contact in filteredChats"
+          :key="`chat-${contact.id}`"
+          class="chat-contact-item mb-3 pa-3 cursor-pointer"
+          :class="{ 'bg-primary': isActiveChat(contact.id) }"
+          @click="openChat(contact.id)"
+        >
+          <div class="d-flex align-center">
+            <VBadge
+              dot
+              :color="resolveAvatarBadgeVariant(contact.status)"
+              location="bottom right"
+              offset-x="3"
+              offset-y="3"
+              bordered
+              class="me-4"
             >
-              <VImg v-if="contact.avatar" :src="contact.avatar" />
-              <span v-else class="text-h6">{{ getInitials(contact.fullName) }}</span>
-            </VAvatar>
-          </VBadge>
-          <div class="flex-grow-1 overflow-hidden">
-            <h6 class="text-h6 font-weight-regular">{{ contact.fullName }}</h6>
-            <p class="mb-0 text-truncate text-disabled">{{ contact.about }}</p>
+              <VAvatar 
+                size="40"
+                :color="!contact.avatar ? getAvatarColor(contact.id) : undefined"
+              >
+                <VImg v-if="contact.avatar" :src="contact.avatar" />
+                <span v-else class="text-h6">{{ getInitials(contact.fullName) }}</span>
+              </VAvatar>
+            </VBadge>
+            <div class="flex-grow-1 overflow-hidden">
+              <h6 class="text-h6 font-weight-regular" :class="{ 'text-white': isActiveChat(contact.id) }">{{ contact.fullName }}</h6>
+              <p class="mb-0 text-truncate" :class="isActiveChat(contact.id) ? 'text-white' : 'text-disabled'">
+                {{ contact.lastMessage || 'No messages yet' }}
+              </p>
+            </div>
+            <div class="d-flex flex-column align-self-start">
+              <span class="text-sm mb-2" :class="isActiveChat(contact.id) ? 'text-white' : 'text-disabled'">
+                {{ formatLastMessageTime(contact.lastMessageAt) }}
+              </span>
+              <VBadge v-if="contact.unseenMsgs" color="error" :content="contact.unseenMsgs" inline />
+            </div>
           </div>
+        </li>
+        
+        <!-- Empty State -->
+        <div v-if="!filteredChats.length" class="text-center py-4">
+          <p class="text-disabled">No chats found.</p>
         </div>
-      </li>
-      <div v-if="!filteredChats.length && !filteredContacts.length" class="text-center py-4">
-        <p class="text-disabled">No contacts or chats found.</p>
       </div>
     </PerfectScrollbar>
   </VNavigationDrawer>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import { useDisplay } from 'vuetify'
-import type { ChatContact, ChatUserProfile } from '@/features/chat/types' // Assuming types are defined here
+import type { ChatContact, ChatUserProfile } from '@/features/chat/types'
+import { ChatService } from '@/features/chat/services/chatService'
 
 const props = defineProps<{
   modelValue: boolean
@@ -131,7 +108,7 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
   (e: 'openUserProfile'): void
   (e: 'openActiveChatUserProfile'): void
-  (e: 'selectChat', contactId: number): void // Emits when a chat/contact is selected
+  (e: 'selectChat', contactId: string): void // Changed to string for UUID
 }>()
 
 const { mdAndUp } = useDisplay()
@@ -142,61 +119,48 @@ const isDrawerOpen = computed({
 })
 
 const searchQuery = ref('')
-const activeChatId = ref<number | null>(null) // To track the active chat
+const activeChatId = ref<string | null>(null) // Changed to string for UUID
+const chats = ref<ChatContact[]>([])
+const loading = ref(false)
 
-// Placeholder data - replace with actual data from your service/store
-const chats = ref<ChatContact[]>([
-  {
-    id: 1,
-    fullName: 'Felecia Rower',
-    role: 'Frontend Developer',
-    about: 'Cake pie jelly jelly beans. Marzipan lemon drops halvah cake. Pudding cookie lemon drops icing',
-    // avatar: '/images/avatars/avatar-2.png',
-    status: 'online',
-    lastMessage: { message: 'Cake pie jelly jelly beans. Marzipan lemon drops halvah cake. Pudding cookie lemon drops icing', time: '10:00 AM', senderId: 1, feedback: { isSent: true, isDelivered: true, isSeen: true } },
-    unseenMsgs: 0,
-  },
-  {
-    id: 2,
-    fullName: 'Adalberto Granzin',
-    role: 'UI/UX Designer',
-    about: 'Toffee caramels jelly-o tart gummi bears cake I love ice cream lollipop. Sweet liquorice croissant candy',
-    // avatar: '/images/avatars/avatar-3.png',
-    status: 'online',
-    lastMessage: { message: 'Toffee caramels jelly-o tart gummi bears cake I love ice cream lollipop. Sweet liquorice croissant candy', time: '10:30 AM', senderId: 2, feedback: { isSent: true, isDelivered: true, isSeen: true } },
-    unseenMsgs: 2,
-  },
-])
-
-const contacts = ref<ChatContact[]>([
-  {
-    id: 3,
-    fullName: 'Gavin Griffith',
-    role: 'Backend Developer',
-    about: 'Cupcake sugar plum bourbon pita bread faworki jujubes. Candy wafer tiramisu sugar plum sweet.',
-    // avatar: '/images/avatars/avatar-4.png',
-    status: 'offline',
-  },
-  {
-    id: 4,
-    fullName: 'Curtis Fletcher',
-    role: 'Full Stack Developer',
-    about: 'Macaroon candy canes tootsie roll wafer I love chocolate. Wafer lollipop dessert cookie wafer.',
-    // avatar: '/images/avatars/avatar-5.png',
-    status: 'busy',
-  },
-])
+// Load contacts from Supabase
+const loadContacts = async () => {
+  // console.log('🔍 ChatListSidebar: Starting to load contacts...')
+  loading.value = true
+  
+  try {
+    // console.log('📞 ChatListSidebar: Calling ChatService.getContacts()...')
+    const contacts = await ChatService.getContacts()
+    
+    // console.log('📊 ChatListSidebar: Contacts received from service:', contacts)
+    // console.log(`📈 ChatListSidebar: Total contacts loaded: ${contacts.length}`)
+    
+    chats.value = contacts
+    
+    if (contacts.length === 0) {
+      // console.log('⚠️ ChatListSidebar: No contacts found in database')
+    } else {
+      // console.log('✅ ChatListSidebar: Contacts successfully loaded:', chats.value)
+    }
+    
+  } catch (error) {
+    // console.error('❌ ChatListSidebar: Error loading contacts:', error)
+  } finally {
+    loading.value = false
+    // console.log('🏁 ChatListSidebar: Loading contacts completed')
+  }
+}
 
 const filteredChats = computed(() => {
-  return chats.value.filter(chat =>
+  const filtered = chats.value.filter(chat =>
     chat.fullName.toLowerCase().includes(searchQuery.value.toLowerCase()),
   )
-})
-
-const filteredContacts = computed(() => {
-  return contacts.value.filter(contact =>
-    contact.fullName.toLowerCase().includes(searchQuery.value.toLowerCase()),
-  )
+  
+  // console.log(`🔍 ChatListSidebar: Filtering chats with search query: "${searchQuery.value}""`)
+  // console.log(`📊 ChatListSidebar: Filtered chats result:`, filtered)
+  // console.log(`📈 ChatListSidebar: ${filtered.length} out of ${chats.value.length} chats match filter`)
+  
+  return filtered
 })
 
 const resolveAvatarBadgeVariant = (status: string) => {
@@ -206,16 +170,23 @@ const resolveAvatarBadgeVariant = (status: string) => {
   return 'secondary'
 }
 
-const isActiveChat = (contactId: number) => {
+const isActiveChat = (contactId: string) => {
   return activeChatId.value === contactId
 }
 
-const openChat = (contactId: number) => {
+const openChat = (contactId: string) => {
+  // console.log(`🎯 ChatListSidebar: Opening chat for contact ID: ${contactId}`)
+  
   activeChatId.value = contactId
+  // console.log(`✅ ChatListSidebar: Active chat ID set to: ${activeChatId.value}`)
+  
   emit('selectChat', contactId)
+  // console.log(`📡 ChatListSidebar: Emitted selectChat event with contact ID: ${contactId}`)
+  
   // On small screens, close the sidebar after selecting a chat
   if (!mdAndUp.value) {
     isDrawerOpen.value = false
+    // console.log('📱 ChatListSidebar: Closed sidebar on small screen')
   }
 }
 
@@ -230,10 +201,68 @@ const getInitials = (fullName: string): string => {
 };
 
 const avatarColors = ['primary', 'secondary', 'success', 'info', 'warning', 'error'];
-const getAvatarColor = (id: number | string): string => {
-  const numId = typeof id === 'string' ? parseInt(id, 10) : id;
-  return avatarColors[numId % avatarColors.length];
+const getAvatarColor = (id: string): string => {
+  const hash = id.split('').reduce((a, b) => {
+    a = ((a << 5) - a) + b.charCodeAt(0);
+    return a & a;
+  }, 0);
+  return avatarColors[Math.abs(hash) % avatarColors.length];
 };
+
+const formatLastMessageTime = (timestamp?: string) => {
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+  
+  if (diffInHours < 24) {
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  } else {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+}
+
+// Real-time subscription
+let contactsSubscription: any = null
+
+onMounted(async () => {
+  // console.log('🚀 ChatListSidebar: Component mounted, starting initialization...')
+  
+  await loadContacts()
+  
+  console.log('📡 ChatListSidebar: Setting up real-time subscription for contacts...')
+  
+  // Subscribe to contact updates
+  contactsSubscription = ChatService.subscribeToContacts((updatedContact) => {
+    console.log('🔄 ChatListSidebar: Received real-time contact update:', updatedContact)
+    
+    const index = chats.value.findIndex(c => c.id === updatedContact.id)
+    if (index !== -1) {
+      // console.log(`✏️ ChatListSidebar: Updating existing contact at index ${index}`)
+      chats.value[index] = updatedContact
+    } else {
+      // console.log('➕ ChatListSidebar: Adding new contact to list')
+      chats.value.unshift(updatedContact) // Add to the beginning for visibility
+    }
+    
+    // Sort by last message time to ensure the most recent chat is on top
+    chats.value.sort((a, b) => {
+      if (!a.lastMessageAt) return 1 // Contacts without lastMessageAt go to bottom
+      if (!b.lastMessageAt) return -1 // Contacts without lastMessageAt go to bottom
+      return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    })
+    
+    // console.log('📊 ChatListSidebar: Updated chats list after real-time update:', chats.value)
+  })
+  
+  // console.log('✅ ChatListSidebar: Initialization completed')
+})
+
+onUnmounted(() => {
+  if (contactsSubscription) {
+    contactsSubscription.unsubscribe()
+  }
+})
 
 watch(mdAndUp, val => {
   if(val) isDrawerOpen.value = true

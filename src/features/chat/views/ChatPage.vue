@@ -1,12 +1,12 @@
 <template>
   <VLayout class="chat-app-layout bg-surface">
     <!-- User Profile Sidebar -->
-    <UserProfileSidebar v-model="isUserProfileSidebarOpen" :user-profile="currentUserProfile" />
+    <UserProfileSidebar v-model="isUserProfileSidebarOpen" :user-profile="currentUser" />
 
     <!-- Chat List Sidebar -->
     <ChatListSidebar 
       v-model="isChatListSidebarOpen" 
-      :user-profile="currentUserProfile"
+      :user-profile="currentUser"
       @open-user-profile="isUserProfileSidebarOpen = true" 
       @open-active-chat-user-profile="isActiveChatUserProfileOpen = true"
       @select-chat="handleSelectChat"
@@ -52,7 +52,7 @@
         <ChatLog :chat-log="currentChatMessages" :contact="activeContact" class="flex-grow-1" />
 
         <!-- Message Input -->
-        <ChatMessageInput @send-message="sendMessage" />
+        <ChatMessageInput @send-message="sendMessage" @send-image="sendImageMessage" />
       </div>
       <div v-else class="d-flex justify-center align-center h-100">
         <p class="text-h6 text-disabled">Select a chat to start messaging</p>
@@ -60,14 +60,16 @@
     </VMain>
 
     <!-- Active Chat User Profile Sidebar -->
-    <ActiveChatUserProfileSidebar v-model="isActiveChatUserProfileOpen" :user="activeContact" />
+    <ActiveChatUserProfileSidebar v-model="isActiveChatUserProfileOpen" :user="activeContact || undefined" />
   </VLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useDisplay } from 'vuetify'
-import type { ChatLogEntry, ChatContact, ChatUserProfile, ChatMessage } from '@/features/chat/types'
+import { ChatService } from '@/features/chat/services/chatService'
+import { useChatAuth } from '@/features/chat/composables/useChatAuth'
+import type { ChatLogEntry, ChatContact } from '@/features/chat/types'
 
 // Components
 import UserProfileSidebar from '@/features/chat/components/UserProfileSidebar.vue'
@@ -81,130 +83,123 @@ const isActiveChatUserProfileOpen = ref(false)
 const isChatListSidebarOpen = ref(true) // Default to open on larger screens
 
 const { mdAndUp } = useDisplay()
+const { currentUser } = useChatAuth()
 
 // Adjust sidebar visibility based on screen size
 watch(mdAndUp, val => {
   isChatListSidebarOpen.value = val
 }, { immediate: true })
 
-// --- Mock Data --- 
-// Current Logged-in User (Placeholder)
-const currentUserProfile = ref<ChatUserProfile>({
-  id: 0, // Assuming 0 is the current user, or fetch from auth
-  fullName: 'Nasrul Islam',
-  avatar: '/images/avatars/avatar-1.png',
-  role: 'Admin',
-  about: 'Focused and dedicated.',
-  status: 'online',
-  settings: { isTwoStepAuthVerificationEnabled: true, isNotificationEnabled: false }
-});
+// Chat state
+const activeContactId = ref<string | null>(null)
+const activeContact = ref<ChatContact | null>(null)
+const currentChatMessages = ref<ChatLogEntry[]>([])
+const loading = ref(false)
 
-// All contacts (chats and other contacts)
-const allContacts = ref<ChatContact[]>([
-  {
-    id: 1,
-    fullName: 'Felecia Rower',
-    role: 'Frontend Developer',
-    about: 'Cake pie jelly jelly beans. Marzipan lemon drops halvah cake. Pudding cookie lemon drops icing',
-    avatar: '/images/avatars/avatar-2.png',
-    status: 'online',
-  },
-  {
-    id: 2,
-    fullName: 'Adalberto Granzin',
-    role: 'UI/UX Designer',
-    about: 'Toffee caramels jelly-o tart gummi bears cake I love ice cream lollipop. Sweet liquorice croissant candy',
-    avatar: '/images/avatars/avatar-3.png',
-    status: 'online',
-  },
-  {
-    id: 3,
-    fullName: 'Gavin Griffith',
-    role: 'Backend Developer',
-    about: 'Cupcake sugar plum bourbon pita bread faworki jujubes. Candy wafer tiramisu sugar plum sweet.',
-    avatar: '/images/avatars/avatar-4.png',
-    status: 'offline',
-  },
-  {
-    id: 4,
-    fullName: 'Curtis Fletcher',
-    role: 'Full Stack Developer',
-    about: 'Macaroon candy canes tootsie roll wafer I love chocolate. Wafer lollipop dessert cookie wafer.',
-    avatar: '/images/avatars/avatar-5.png',
-    status: 'busy',
-  },
-]);
+// Message subscription
+let messageSubscription: any = null
 
-// Store for all chat logs, keyed by contact ID
-const allChatLogs = ref<Record<number, ChatLogEntry[]>>({
-  1: [
-    {
-      isSender: false,
-      message: { id: '1-1', message: 'Hi! How are you, Felecia?', time: new Date(Date.now() - 1000 * 60 * 5).toISOString(), senderId: 0, feedback: { isSent: true, isDelivered: true, isSeen: true } },
-    },
-    {
-      isSender: true,
-      message: { id: '1-2', message: 'I am good, thanks for asking!', time: new Date(Date.now() - 1000 * 60 * 4).toISOString(), senderId: 1, feedback: { isSent: true, isDelivered: true, isSeen: true } },
-    },
-  ],
-  2: [
-    {
-      isSender: false,
-      message: { id: '2-1', message: 'Hey Adalberto, got a minute for a design review?', time: new Date(Date.now() - 1000 * 60 * 10).toISOString(), senderId: 0, feedback: { isSent: true, isDelivered: true, isSeen: true } },
-    },
-  ],
-  3: [
-    {
-      isSender: false,
-      message: { id: '3-1', message: 'Hello Gavin! How can I help you today?', time: new Date().toISOString(), senderId: 3, feedback: { isSent: true, isDelivered: true, isSeen: false } },
-    },
-    {
-      isSender: true,
-      message: { id: '3-2', message: 'I need help with my account.', time: new Date(Date.now() + 1000 * 60).toISOString(), senderId: 0, feedback: { isSent: true, isDelivered: true, isSeen: true } },
-    },
-    {
-      isSender: true,
-      message: { id: '3-3', message: 'Thanks, From our official site 😇', time: new Date(Date.now() + 1000 * 120).toISOString(), senderId: 0, feedback: { isSent: true, isDelivered: true, isSeen: true } },
-    },
-  ],
-  // No messages for contact 4 initially
-});
-
-const activeContactId = ref<number | null>(null);
-const activeContact = computed(() => allContacts.value.find(c => c.id === activeContactId.value) || null);
-
-const currentChatMessages = computed<ChatLogEntry[]>(() => {
-  if (activeContactId.value === null) return [];
-  return allChatLogs.value[activeContactId.value] || [];
-});
-
-const handleSelectChat = (contactId: number) => {
-  activeContactId.value = contactId;
-  // If no chat log exists for this contact, create an empty one
-  if (!allChatLogs.value[contactId]) {
-    allChatLogs.value[contactId] = [];
+const handleSelectChat = async (contactId: string) => {
+  // console.log(`🎯 ChatPage: Selected chat with contact ID: ${contactId}`)
+  
+  // 1. Unsubscribe from previous chat if a subscription exists
+  if (messageSubscription) {
+    // console.log('🔌 ChatPage: Unsubscribing from previous contact...');
+    messageSubscription.unsubscribe()
+    messageSubscription = null
   }
-  // Optionally, mark messages as seen or fetch new messages here
-};
+  
+  // 2. Reset active contact and messages immediately for UI responsiveness
+  // console.log('🔄 ChatPage: Resetting active contact and messages...');
+  activeContact.value = null
+  currentChatMessages.value = []
+  activeContactId.value = contactId // Set the new contact ID
+  
+  loading.value = true
+  
+  try {
+    // console.log(`🔍 ChatPage: Getting contact details for ID: ${contactId}`)
+    const contact = await ChatService.getContactById(contactId)
+    // console.log(`📊 ChatPage: Contact details received:`, contact)
+    
+    if (contact) {
+      activeContact.value = contact
+      // console.log(`✅ ChatPage: Active contact set:`, activeContact.value)
+      
+      // console.log(`🔍 ChatPage: Loading messages for contact ID: ${contactId}`)
+      const messages = await ChatService.getContactMessages(contactId)
+      // console.log(`📊 ChatPage: Messages received:`, messages)
+      // console.log(`📈 ChatPage: Total messages count: ${messages.length}`)
+      currentChatMessages.value = messages
+      
+      // 4. Subscribe to new messages for the current contact
+      // console.log('🔌 ChatPage: Subscribing to new contact...');
+      messageSubscription = ChatService.subscribeToMessages(contactId, (newMessage, eventType) => {
+        // console.log('🔔 ChatPage: Real-time message received in ChatPage:', newMessage, 'Event:', eventType);
+        handleNewMessage(newMessage, eventType)
+      })
+    } else {
+      console.error(`❌ ChatPage: Contact not found for ID: ${contactId}`);
+      // Potentially clear activeContactId if contact is not found to prevent further issues
+      // activeContactId.value = null;
+    }
+    
+  } catch (error) {
+    console.error('❌ ChatPage: Error loading chat:', error)
+    // Reset to a known safe state in case of error
+    activeContact.value = null
+    currentChatMessages.value = []
+    // activeContactId.value = null; // Optionally reset this too
+  } finally {
+    loading.value = false
+  }
+}
 
-const sendMessage = (messageContent: string) => {
-  if (activeContactId.value === null || currentUserProfile.value === null) return;
+const sendMessage = async (messageContent: string) => {
+  if (!activeContactId.value || !currentUser.value.id) return
+  
+  try {
+    const success = await ChatService.sendMessage(
+      activeContactId.value,
+      messageContent,
+      currentUser.value.id
+    )
+    
+    if (success) {
+      // Message will be added via real-time subscription
+      // console.log('Message sent successfully')
+    } else {
+      console.error('Failed to send message')
+    }
+  } catch (error) {
+    console.error('Error sending message:', error)
+  }
+}
 
-  const currentLog = allChatLogs.value[activeContactId.value];
-  if (!currentLog) return; // Should not happen if handleSelectChat initializes it
-
-  const newIdSuffix = currentLog.length + 1;
-  const newMessage: ChatMessage = {
-    id: `${activeContactId.value}-${newIdSuffix}`,
-    message: messageContent,
-    time: new Date().toISOString(),
-    senderId: currentUserProfile.value.id, // Current user is the sender
-    feedback: { isSent: true, isDelivered: false, isSeen: false },
-  };
-
-  currentLog.push({ isSender: true, message: newMessage });
-  // Here you would also send the message to your backend/Supabase
-};
+const sendImageMessage = async (imageFile: File, caption: string) => {
+  if (!activeContactId.value || !currentUser.value.id) return
+  
+  // console.log('🖼️ ChatPage: Sending image message...')
+  // console.log('📁 File:', imageFile.name)
+  // console.log('📝 Caption:', caption)
+  
+  try {
+    const success = await ChatService.sendImageFile(
+      activeContactId.value,
+      imageFile,
+      caption,
+      currentUser.value.id
+    )
+    
+    if (success) {
+      // console.log('✅ ChatPage: Image message sent successfully')
+    } else {
+      console.error('❌ ChatPage: Failed to send image message')
+    }
+  } catch (error) {
+    console.error('❌ ChatPage: Error sending image message:', error)
+  }
+}
 
 const resolveAvatarBadgeVariant = (status?: 'online' | 'offline' | 'away' | 'busy') => {
   if (status === 'online') return 'success'
@@ -213,15 +208,62 @@ const resolveAvatarBadgeVariant = (status?: 'online' | 'offline' | 'away' | 'bus
   return 'secondary' // For offline or undefined
 }
 
+const handleNewMessage = (messageEntry: ChatLogEntry, eventType: 'INSERT' | 'UPDATE') => {
+  // console.log('💬 ChatPage: handleNewMessage eventType:', eventType, 'messageEntry:', messageEntry)
+
+  if (activeContact.value) { // Check if there's an active chat
+    if (!messageEntry.isSender) { // Incoming message
+      // This is an incoming message for the active chat
+      // console.log('💬 ChatPage: Incoming message for active chat, pushing to log.', messageEntry)
+      currentChatMessages.value.push(messageEntry);
+    } else { // Outgoing message (messageEntry.isSender is true)
+      // This is an outgoing message related to the active chat
+      if (eventType === 'INSERT') {
+        // console.log('💬 ChatPage: Outgoing message INSERT for active chat, pushing to log.', messageEntry)
+        currentChatMessages.value.push(messageEntry);
+      } else if (eventType === 'UPDATE') {
+        // console.log('💬 ChatPage: Outgoing message UPDATE for active chat, attempting to update existing.', messageEntry)
+        const existingMessageIndex = currentChatMessages.value.findIndex(entry => entry.message.id === messageEntry.message.id);
+        if (existingMessageIndex !== -1) {
+          // console.log('💬 ChatPage: Found existing outgoing message, updating feedback.', messageEntry.message.feedback)
+          // Update feedback and potentially other properties if needed
+          currentChatMessages.value[existingMessageIndex].message.feedback = { ...messageEntry.message.feedback };
+          // To ensure full reactivity of the message object if other properties might change:
+          // currentChatMessages.value[existingMessageIndex].message = { ...currentChatMessages.value[existingMessageIndex].message, ...messageEntry.message };
+        } else {
+          // This case might happen if the UPDATE event arrives before the INSERT for some reason,
+          // or if the initial fetch didn't include this message and it's an update to a message not yet in the log.
+          // console.warn('💬 ChatPage: Did not find existing outgoing message to update via UPDATE event, pushing to log.', messageEntry)
+          currentChatMessages.value.push(messageEntry); 
+        }
+      }
+    }
+  } else {
+    // console.log('💬 ChatPage: Message received but no active chat. Cannot update UI for this chat.');
+    // Logic for updating unseen messages for non-active chats was here.
+    // This requires access to the 'contacts' list, which is not directly available in this component's scope.
+    // This part was commented out in a previous step due to 'contacts' not being defined.
+    // if (messageEntry.message.direction === 'incoming') {
+      // console.warn('💬 ChatPage: Received message for non-active chat, but cannot update unseenMsgs as \'contacts\' is not available here.')
+    // }
+  }
+}
+
+onMounted(() => {
+  // Any additional initialization can go here
+})
+
+onUnmounted(() => {
+  if (messageSubscription) {
+    messageSubscription.unsubscribe()
+  }
+})
+
 </script>
 
 <style lang="scss">
 .chat-app-layout {
   height: calc(100vh - 64px - 48px - 24px); 
-}
-
-.chat-content-container {
-  // CSS variables might be needed if VMain doesn't adjust to VNavigationDrawer automatically
 }
 
 .v-main.chat-content-container {

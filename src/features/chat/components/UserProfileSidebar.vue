@@ -11,18 +11,16 @@
       <VBtn icon variant="text" @click="isDrawerOpen = false">
         <VIcon icon="ri-close-line" class="text-medium-emphasis" />
       </VBtn>
-    </div>
-
-    <div class="text-center px-6">
-      <VBadge bordered :color="user.status === 'online' ? 'success' : 'secondary'" location="bottom right" offset-x="10" offset-y="10" class="chat-user-profile-badge mb-4">
-        <VAvatar size="84" :variant="user.avatar ? 'flat' : 'tonal'" :color="user.avatar ? undefined : 'primary'">
-          <VImg v-if="user.avatar" :src="user.avatar" />
-          <span v-else>{{ user.name.slice(0,2).toUpperCase() }}</span>
-        </VAvatar>
-      </VBadge>
-      <h5 class="text-h5">{{ user.name }}</h5>
-      <p class="text-body-1 text-capitalize mb-0">{{ user.role }}</p>
-    </div>
+    </div>      <div class="text-center px-6">
+        <VBadge bordered :color="user.status === 'online' ? 'success' : 'secondary'" location="bottom right" offset-x="10" offset-y="10" class="chat-user-profile-badge mb-4">
+          <VAvatar size="84" :variant="user.avatar ? 'flat' : 'tonal'" :color="user.avatar ? undefined : 'primary'">
+            <VImg v-if="user.avatar" :src="user.avatar" />
+            <span v-else>{{ user.fullName?.slice(0,2).toUpperCase() || user.name?.slice(0,2).toUpperCase() }}</span>
+          </VAvatar>
+        </VBadge>
+        <h5 class="text-h5">{{ user.fullName || user.name }}</h5>
+        <p class="text-body-1 text-capitalize mb-0">{{ user.role }}</p>
+      </div>
 
     <VDivider class="my-4" />
 
@@ -91,6 +89,7 @@ import { useRouter } from 'vue-router'
 
 const props = defineProps<{
   modelValue: boolean
+  userProfile?: any // ChatUserProfile type
 }>()
 
 const emit = defineEmits<{
@@ -105,13 +104,20 @@ const isDrawerOpen = computed({
 const authService = useAuthService()
 const router = useRouter()
 
-// Placeholder user data - replace with actual logged-in user data from your auth service
-const user = ref({
-  name: authService.authState.value.user?.email?.split('@')[0] || 'John Doe',
-  role: 'Admin', // This should come from user data
-  avatar: '/images/avatars/avatar-1.png', // This should come from user data or be a placeholder
-  about: 'Dessert chocolate cake lemon drops jujubes. Biscuit cupcake ice cream bear claw brownie marshmallow.',
-  status: 'online', // This should come from user data
+// Use either passed userProfile or create from auth state
+const user = computed(() => {
+  if (props.userProfile) {
+    return props.userProfile
+  }
+  
+  // Fallback to auth state
+  return {
+    name: authService.authState.value.user?.email?.split('@')[0] || 'John Doe',
+    role: 'Admin',
+    avatar: '/images/avatars/avatar-1.png',
+    about: 'Dessert chocolate cake lemon drops jujubes. Biscuit cupcake ice cream bear claw brownie marshmallow.',
+    status: 'online',
+  }
 })
 
 const handleLogout = async () => {

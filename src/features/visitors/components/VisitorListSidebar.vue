@@ -110,6 +110,7 @@ const statusOptions = [
   { title: 'In Progress', value: 'in_progress' },
   { title: 'Completed', value: 'completed' },
   { title: 'Cancelled', value: 'cancelled' },
+  { title: 'Survey Sent', value: 'survey_sent' },
 ]
 
 const filteredVisitors = computed(() => {
@@ -149,6 +150,7 @@ const getStatusColor = (status: Visitor['status']): string => {
     in_progress: 'info',
     completed: 'success',
     cancelled: 'error',
+    survey_sent: 'primary',
   }
   return colors[status]
 }

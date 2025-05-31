@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Test Chat Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Add Test Chat Data</h1>
+        <p>This will add sample contacts and messages to your Supabase database to test the chat functionality.</p>
+        
+        <button id="addDataBtn" onclick="addTestData()">Add Test Data</button>
+        
+        <div id="status"></div>
+    </div>
+
+    <script type="module">
+        import { supabase } from './src/plugins/supabase.js'
+
+        window.supabase = supabase
+
+        window.addTestData = async function() {
+            const button = document.getElementById('addDataBtn')
+            const status = document.getElementById('status')
+            
+            button.disabled = true
+            button.textContent = 'Adding data...'
+            status.innerHTML = '<div class="status loading">Adding test data to database...</div>'
+            
+            try {
+                console.log('Adding test contacts to the database...')
+
+                // Sample contacts data
+                const testContacts = [
+                    {
+                        wa_id: '628123456789',
+                        name: 'John Doe',
+                        profile_pic_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john',
+                        last_message: 'Hello! How can I help you today?',
+                        last_message_at: new Date(Date.now() - 3600000).toISOString(),
+                        welcome_sent: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        chatbot_state: 'welcome',
+                        last_interaction: new Date().toISOString(),
+                        prefer_agent: false
+                    },
+                    {
+                        wa_id: '628987654321',
+                        name: 'Jane Smith',
+                        profile_pic_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=jane',
+                        last_message: 'Thank you for the quick response!',
+                        last_message_at: new Date(Date.now() - 7200000).toISOString(),
+                        welcome_sent: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        chatbot_state: 'conversation',
+                        last_interaction: new Date().toISOString(),
+                        prefer_agent: true
+                    },
+                    {
+                        wa_id: '628555444333',
+                        name: 'Mike Johnson',
+                        profile_pic_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike',
+                        last_message: 'I need help with my order',
+                        last_message_at: new Date(Date.now() - 10800000).toISOString(),
+                        welcome_sent: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        chatbot_state: 'support',
+                        last_interaction: new Date().toISOString(),
+                        prefer_agent: true
+                    },
+                    {
+                        wa_id: '628111222333',
+                        name: 'Sarah Wilson',
+                        profile_pic_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
+                        last_message: 'Good morning! Can you tell me about your services?',
+                        last_message_at: new Date(Date.now() - 14400000).toISOString(),
+                        welcome_sent: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        chatbot_state: 'inquiry',
+                        last_interaction: new Date().toISOString(),
+                        prefer_agent: false
+                    },
+                    {
+                        wa_id: '628777888999',
+                        name: 'David Brown',
+                        profile_pic_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=david',
+                        last_message: 'Is the support team available?',
+                        last_message_at: new Date(Date.now() - 18000000).toISOString(),
+                        welcome_sent: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        chatbot_state: 'support_request',
+                        last_interaction: new Date().toISOString(),
+                        prefer_agent: true
+                    }
+                ]
+
+                // Insert contacts
+                const { data: insertedContacts, error: contactsError } = await window.supabase
+                    .from('contacts')
+                    .insert(testContacts)
+                    .select()
+
+                if (contactsError) {
+                    throw contactsError
+                }
+
+                console.log('Successfully inserted contacts:', insertedContacts)
+
+                // Add some sample messages for each contact
+                if (insertedContacts && insertedContacts.length > 0) {
+                    const testMessages = []
+                    const currentTime = Date.now()
+
+                    for (let i = 0; i < insertedContacts.length; i++) {
+                        const contact = insertedContacts[i]
+                        const messageTime = currentTime - (i * 3600000)
+
+                        // Add incoming message
+                        testMessages.push({
+                            contact_id: contact.id,
+                            user_id: null,
+                            content: contact.last_message,
+                            type: 'text',
+                            direction: 'incoming',
+                            status: 'delivered',
+                            timestamp: messageTime - 300000,
+                            status_timestamp: messageTime - 300000,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        })
+
+                        // Add outgoing response
+                        testMessages.push({
+                            contact_id: contact.id,
+                            user_id: 'admin-user',
+                            content: `Thanks for contacting us, ${contact.name}! How can we assist you today?`,
+                            type: 'text',
+                            direction: 'outgoing',
+                            status: 'sent',
+                            timestamp: messageTime,
+                            status_timestamp: messageTime,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        })
+                    }
+
+                    const { data: insertedMessages, error: messagesError } = await window.supabase
+                        .from('messages')
+                        .insert(testMessages)
+                        .select()
+
+                    if (messagesError) {
+                        throw messagesError
+                    }
+
+                    console.log('Successfully inserted messages:', insertedMessages)
+                }
+
+                status.innerHTML = '<div class="status success">✅ Test data added successfully! You can now refresh your chat page to see the contacts.</div>'
+                button.textContent = 'Data Added Successfully!'
+                
+            } catch (error) {
+                console.error('Error adding test data:', error)
+                status.innerHTML = `<div class="status error">❌ Error adding test data: ${error.message}</div>`
+                button.disabled = false
+                button.textContent = 'Try Again'
+            }
+        }
+    </script>
+</body>
+</html>

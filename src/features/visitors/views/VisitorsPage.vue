@@ -105,7 +105,7 @@
                   </div>
                   
                   <!-- Status Update Buttons -->
-                  <div class="d-flex gap-2" v-if="selectedVisitor.status !== 'completed' && selectedVisitor.status !== 'cancelled'">
+                  <div class="d-flex gap-2" v-if="selectedVisitor.status !== 'completed' && selectedVisitor.status !== 'cancelled' && selectedVisitor.status !== 'survey_sent'">
                     <VBtn
                       v-if="selectedVisitor.status === 'waiting'"
                       color="info"
@@ -135,6 +135,19 @@
                       :loading="statusLoading"
                     >
                       Cancel
+                    </VBtn>
+                  </div>
+                  
+                  <!-- Send Survey Button for Completed Status -->
+                  <div class="d-flex gap-2 mt-2" v-if="selectedVisitor.status === 'completed'">
+                    <VBtn
+                      color="primary"
+                      size="small"
+                      prepend-icon="ri-survey-line"
+                      @click="showSurveyDialog = true"
+                      :loading="statusLoading"
+                    >
+                      Send Survey
                     </VBtn>
                   </div>
                 </div>
@@ -257,6 +270,74 @@
       />
     </VDialog>
 
+    <!-- Survey Dialog -->
+    <VDialog
+      v-model="showSurveyDialog"
+      persistent
+      width="500"
+    >
+      <VCard v-if="selectedVisitor">
+        <VCardTitle class="d-flex justify-space-between align-center pa-4">
+          <span>Send Satisfaction Survey</span>
+          <VBtn icon variant="text" @click="showSurveyDialog = false">
+            <VIcon icon="ri-close-line" />
+          </VBtn>
+        </VCardTitle>
+        <VDivider />
+        <VCardText class="pa-4">
+          <div class="text-center mb-4">
+            <VIcon icon="ri-survey-line" size="48" color="primary" class="mb-2" />
+            <h6 class="text-h6 mb-2">Send Survey to {{ selectedVisitor.pst_user.name }}</h6>
+            <p class="text-body-2 text-medium-emphasis">
+              Are you sure you want to send a satisfaction survey to this visitor?
+            </p>
+          </div>
+          
+          <VAlert 
+            v-if="selectedVisitor?.pst_user.email || selectedVisitor?.pst_user.phone || selectedVisitor?.pst_user.wa_id"
+            type="info" 
+            variant="tonal" 
+            class="mb-4"
+          >
+            Survey will be sent via:
+            <ul class="mt-2">
+              <li v-if="selectedVisitor?.pst_user.email">Email: {{ selectedVisitor.pst_user.email }}</li>
+              <li v-if="selectedVisitor?.pst_user.phone">SMS: {{ selectedVisitor.pst_user.phone }}</li>
+              <li v-if="selectedVisitor?.pst_user.wa_id">WhatsApp: {{ selectedVisitor.pst_user.wa_id }}</li>
+            </ul>
+          </VAlert>
+          
+          <VAlert 
+            v-else
+            type="warning" 
+            variant="tonal" 
+            class="mb-4"
+          >
+            No contact information available for this visitor. Please ensure contact details are updated before sending the survey.
+          </VAlert>
+        </VCardText>
+        
+        <VCardActions class="pa-4">
+          <VSpacer />
+          <VBtn
+            variant="outlined"
+            color="secondary"
+            @click="showSurveyDialog = false"
+          >
+            Cancel
+          </VBtn>
+          <VBtn
+            color="primary"
+            @click="sendSurvey"
+            :loading="statusLoading"
+            :disabled="!selectedVisitor?.pst_user.email && !selectedVisitor?.pst_user.phone && !selectedVisitor?.pst_user.wa_id"
+          >
+            Send Survey
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
     <!-- Snackbar for notifications -->
     <VSnackbar
       v-model="showSnackbar"
@@ -275,6 +356,7 @@ import { useDisplay } from 'vuetify'
 import { supabase } from '@/plugins/supabase'
 import type { Visitor, SelectedVisitors, ServiceRequest, ServiceType } from '../types'
 import { useVisitorService } from '../services/visitorService'
+import { useWhatsAppService } from '../services/whatsappService'
 import VisitorListSidebar from '../components/VisitorListSidebar.vue'
 import ServiceRequestForm from '../components/ServiceRequestForm.vue'
 
@@ -285,6 +367,7 @@ interface ExtendedServiceRequest extends ServiceRequest {
 
 const { mdAndUp } = useDisplay()
 const { loading, error, getVisitors, getServiceRequests, updateServiceRequest, deleteServiceRequest, updateVisitorStatus: updateVisitorStatusService } = useVisitorService()
+const { sendSatisfactionSurvey, sendSimpleSurveyMessage, getSurveyUrl } = useWhatsAppService()
 
 const visitors = ref<ExtendedVisitor[]>([])
 const selectedVisitorsMap = ref<SelectedVisitors>({})
@@ -293,6 +376,7 @@ const showServiceRequestForm = ref(false)
 const editingRequest = ref<Partial<ServiceRequest>>()
 const serviceRequests = ref<ExtendedServiceRequest[]>([])
 const statusLoading = ref(false)
+const showSurveyDialog = ref(false)
 
 // Snackbar
 const showSnackbar = ref(false)
@@ -350,6 +434,7 @@ const getStatusColor = (status: Visitor['status']): string => {
     in_progress: 'info',
     completed: 'success',
     cancelled: 'error',
+    survey_sent: 'primary',
   }
   return colors[status]
 }
@@ -470,6 +555,87 @@ const updateVisitorStatus = async (visitorId: string, newStatus: Visitor['status
   } catch (err) {
     console.error('Error updating visitor status:', err)
     showNotification('Failed to update visitor status', 'error')
+  } finally {
+    statusLoading.value = false
+  }
+}
+
+const sendSurvey = async () => {
+  if (!selectedVisitor.value) return
+  
+  try {
+    statusLoading.value = true
+    
+    const visitor = selectedVisitor.value
+    
+    // Cek apakah visitor memiliki WhatsApp ID
+    if (visitor.pst_user.wa_id) {
+      try {
+        // Format tanggal kunjungan
+        const visitDate = new Date(visitor.checkin_time).toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long', 
+          year: 'numeric'
+        })
+        
+        console.log('Sending WhatsApp survey flow to:', visitor.pst_user.wa_id)
+        
+        // Kirim WhatsApp Flow untuk survei
+        await sendSatisfactionSurvey(
+          visitor.pst_user.wa_id,
+          visitor.pst_user.name,
+          visitDate,
+          'Pelayanan Statistik Terpadu'
+        )
+        
+        console.log('WhatsApp survey flow sent successfully')
+        showNotification('Survey sent via WhatsApp successfully', 'success')
+      } catch (whatsappError) {
+        console.error('Failed to send WhatsApp survey, trying fallback:', whatsappError)
+        
+        // Fallback: kirim pesan teks sederhana dengan link survei
+        try {
+          const surveyUrl = getSurveyUrl(visitor.id)
+          await sendSimpleSurveyMessage(
+            visitor.pst_user.wa_id,
+            visitor.pst_user.name,
+            surveyUrl
+          )
+          
+          console.log('WhatsApp fallback message sent successfully')
+          showNotification('Survey sent via WhatsApp (text message)', 'success')
+        } catch (fallbackError) {
+          console.error('Failed to send WhatsApp fallback message:', fallbackError)
+          showNotification('Failed to send WhatsApp survey', 'error')
+          return
+        }
+      }
+    } else if (visitor.pst_user.email) {
+      // TODO: Implementasi kirim email survei
+      console.log('Sending email survey to:', visitor.pst_user.email)
+      showNotification('Email survey feature coming soon', 'info')
+      // Untuk sekarang hanya log, bisa ditambahkan service email nanti
+    } else if (visitor.pst_user.phone) {
+      // TODO: Implementasi kirim SMS survei  
+      console.log('Sending SMS survey to:', visitor.pst_user.phone)
+      showNotification('SMS survey feature coming soon', 'info')
+      // Untuk sekarang hanya log, bisa ditambahkan service SMS nanti
+    } else {
+      showNotification('No contact information available for survey', 'warning')
+      return
+    }
+    
+    // Update visitor status to 'survey_sent'
+    await updateVisitorStatusService(visitor.id, 'survey_sent', null)
+    
+    // Close the dialog
+    showSurveyDialog.value = false
+    
+    // Refresh visitors data
+    await handleVisitorUpdated()
+  } catch (err) {
+    console.error('Error sending survey:', err)
+    showNotification('Failed to send survey', 'error')
   } finally {
     statusLoading.value = false
   }

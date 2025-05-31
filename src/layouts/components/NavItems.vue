@@ -113,6 +113,24 @@ const { authState } = useAuthService()
     }"
   />
 
+  <VerticalNavLink
+    v-if="authState.user"
+    :item="{
+      title: 'WhatsApp Settings',
+      icon: 'ri-whatsapp-line',
+      to: '/whatsapp-settings',
+    }"
+  />
+
+  <VerticalNavLink
+    v-if="authState.user"
+    :item="{
+      title: 'Message Templates',
+      icon: 'ri-message-3-line',
+      to: '/templates',
+    }"
+  />
+
   <!-- Conditionally show Login/Register -->
   <template v-if="!authState.user">
     <VerticalNavLink

@@ -59,6 +59,16 @@ export const routes = [
         component: () => import('@/features/visitors/views/VisitorsPage.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: 'whatsapp-settings',
+        component: () => import('@/features/visitors/views/WhatsAppSettingsPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'templates',
+        component: () => import('@/features/message-templates/views/TemplatesPage.vue'),
+        meta: { requiresAuth: true },
+      },
     ],
   },
   {

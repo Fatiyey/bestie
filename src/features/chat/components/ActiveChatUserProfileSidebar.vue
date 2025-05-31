@@ -71,7 +71,7 @@ import type { ChatContact } from '@/features/chat/types'
 
 const props = defineProps<{
   modelValue: boolean
-  contact?: ChatContact // The active chat contact
+  user?: ChatContact // The active chat contact (renamed from contact for consistency)
 }>()
 
 const emit = defineEmits<{
@@ -82,6 +82,9 @@ const isDrawerOpen = computed({
   get: () => props.modelValue,
   set: val => emit('update:modelValue', val),
 })
+
+// Alias for better template readability
+const contact = computed(() => props.user)
 
 const resolveAvatarBadgeVariant = (status?: string) => {
   if (status === 'online') return 'success'
