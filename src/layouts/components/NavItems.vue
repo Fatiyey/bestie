@@ -59,6 +59,31 @@ const { authState } = useAuthService()
         badgeClass: 'bg-light-primary text-primary',
       }"
     />
+  </VerticalNavGroup>      <!-- 👉 Manajemen Kegiatan -->
+  <VerticalNavGroup
+    :item="{
+      title: 'Manajemen Kegiatan',
+      icon: 'ri-calendar-event-line',
+    }"
+  >
+    <VerticalNavLink
+      :item="{
+        title: 'Survei',
+        to: '/manajemen-kegiatan/survei',
+      }"
+    />
+    <VerticalNavLink
+      :item="{
+        title: 'Periode',
+        to: '/manajemen-kegiatan/periode',
+      }"
+    />
+    <VerticalNavLink
+      :item="{
+        title: 'Tipe Periode',
+        to: '/manajemen-kegiatan/tipe-periode',
+      }"
+    />
   </VerticalNavGroup>
 
 
