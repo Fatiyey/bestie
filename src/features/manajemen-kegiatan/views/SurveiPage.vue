@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { useSurveiService } from '../services/surveiService'
 import { useTipePeriodeService } from '../services/tipePeriodeService'
-import type { Survei, CreateSurveiPayload, UpdateSurveiPayload } from '../types'
-import type { TipePeriode } from '../types'
+import type { Survei, CreateSurveiPayload, UpdateSurveiPayload } from '../types/survei'
+import type { TipePeriode } from '../types/tipePeriode'
 
-const { getSurveis, createSurvei, updateSurvei, deleteSurvei, loading } = useSurveiService()
+const { getSurveis, createSurvei, updateSurvei, deleteSurvei, loading, error } = useSurveiService()
 const { getTipePeriodes } = useTipePeriodeService()
 
 const search = ref('')
@@ -14,31 +14,59 @@ const tipePeriodeList = ref<TipePeriode[]>([])
 const editDialog = ref(false)
 const deleteDialog = ref(false)
 const isCreating = ref(false)
+const snackbar = ref(false)
+const snackbarMessage = ref('')
+const snackbarColor = ref('success')
 
 const defaultCreatePayload: CreateSurveiPayload = {
   nama: '',
-  tipe_periode_id: null
+  tipe_periode: null
 }
 
 const defaultUpdatePayload: UpdateSurveiPayload = {
   nama: '',
-  tipe_periode_id: null
+  tipe_periode: null
 }
 
 const editedItem = reactive<CreateSurveiPayload | UpdateSurveiPayload>({ ...defaultCreatePayload })
 const editedId = ref<number | null>(null)
+
+// Computed untuk filter search
+const filteredSurveiList = computed(() => {
+  if (!search.value) return surveiList.value
+  return surveiList.value.filter(item => 
+    item.nama.toLowerCase().includes(search.value.toLowerCase()) ||
+    item.tipe_periode_data?.nama_tipe?.toLowerCase().includes(search.value.toLowerCase())
+  )
+})
 
 const resetForm = () => {
   Object.assign(editedItem, defaultCreatePayload)
   editedId.value = null
 }
 
+const showNotification = (message: string, color: string = 'success') => {
+  snackbarMessage.value = message
+  snackbarColor.value = color
+  snackbar.value = true
+}
+
 const fetchSurveis = async () => {
-  surveiList.value = await getSurveis()
+  try {
+    surveiList.value = await getSurveis()
+  } catch (err) {
+    console.error('Error fetching surveis:', err)
+    showNotification('Gagal memuat data survei', 'error')
+  }
 }
 
 const fetchTipePeriodes = async () => {
-  tipePeriodeList.value = await getTipePeriodes()
+  try {
+    tipePeriodeList.value = await getTipePeriodes()
+  } catch (err) {
+    console.error('Error fetching tipe periodes:', err)
+    showNotification('Gagal memuat data tipe periode', 'error')
+  }
 }
 
 onMounted(async () => {
@@ -46,87 +74,84 @@ onMounted(async () => {
 })
 
 const handleCreate = async () => {
-  await createSurvei(editedItem as CreateSurveiPayload)
-  editDialog.value = false
-  resetForm()
-  await fetchSurveis()
+  try {
+    const result = await createSurvei(editedItem as CreateSurveiPayload)
+    if (result) {
+      editDialog.value = false
+      resetForm()
+      await fetchSurveis()
+      showNotification('Survei berhasil ditambahkan!')
+    } else {
+      showNotification('Gagal menambahkan survei. ' + (error.value || ''), 'error')
+    }
+  } catch (err: any) {
+    showNotification('Terjadi kesalahan: ' + err.message, 'error')
+  }
 }
 
 const handleUpdate = async () => {
   if (editedId.value !== null) {
-    await updateSurvei(editedId.value, editedItem as UpdateSurveiPayload)
-    editDialog.value = false
-    resetForm()
-    await fetchSurveis()
+    try {
+      const result = await updateSurvei(editedId.value, editedItem as UpdateSurveiPayload)
+      if (result) {
+        editDialog.value = false
+        resetForm()
+        await fetchSurveis()
+        showNotification('Survei berhasil diperbarui!')
+      } else {
+        showNotification('Gagal memperbarui survei. ' + (error.value || ''), 'error')
+      }
+    } catch (err: any) {
+      showNotification('Terjadi kesalahan: ' + err.message, 'error')
+    }
   }
 }
 
 const handleDelete = async () => {
   if (editedId.value !== null) {
-    await deleteSurvei(editedId.value)
-    deleteDialog.value = false
-    resetForm()
-    await fetchSurveis()
+    try {
+      const result = await deleteSurvei(editedId.value)
+      if (result) {
+        deleteDialog.value = false
+        resetForm()
+        await fetchSurveis()
+        showNotification('Survei berhasil dihapus!')
+      } else {
+        showNotification('Gagal menghapus survei. ' + (error.value || ''), 'error')
+      }
+    } catch (err: any) {
+      showNotification('Terjadi kesalahan: ' + err.message, 'error')
+    }
   }
 }
 
-const editItem = (item: Survei) => {
-  editedId.value = item.id
-  Object.assign(editedItem, {
-    nama: item.nama,
-    tipe_periode_id: item.tipe_periode_id
-  })
-  editDialog.value = true
-  isCreating.value = false
-}
-
-const deleteItem = (item: Survei) => {
-  editedId.value = item.id
-  Object.assign(editedItem, {
-    nama: item.nama,
-    tipe_periode_id: item.tipe_periode_id
-  })
-  deleteDialog.value = true
-}
-    deleteDialog.value = false
-    resetForm()
-    await fetchSurveis()
-  }
-}
-
-const editItem = (item: Survei) => {
-  editedId.value = item.id
-  Object.assign(editedItem, {
-    nama: item.nama,
-    periode_id: item.periode_id,
-    tipe_periode_id: item.tipe_periode_id
-  })
-  editDialog.value = true
-  isCreating.value = false
-}
-
-const deleteItem = (item: Survei) => {
-  editedId.value = item.id
-  Object.assign(editedItem, {
-    nama: item.nama,
-    periode_id: item.periode_id,
-    tipe_periode_id: item.tipe_periode_id
-  })
-  deleteDialog.value = true
-}
-
-const addNewItem = () => {
+const openCreateDialog = () => {
   resetForm()
-  editDialog.value = true
   isCreating.value = true
+  editDialog.value = true
+}
+
+const openEditDialog = (item: Survei) => {
+  Object.assign(editedItem, {
+    nama: item.nama,
+    tipe_periode: item.tipe_periode
+  })
+  editedId.value = item.id
+  isCreating.value = false
+  editDialog.value = true
+}
+
+const openDeleteDialog = (item: Survei) => {
+  editedId.value = item.id
+  deleteDialog.value = true
 }
 </script>
 
 <template>
   <VCard>
     <VCardTitle class="d-flex align-center justify-space-between">
-      <span>Survei</span>
-      <VBtn color="primary" @click="addNewItem">
+      <span>Manajemen Survei</span>
+      <VBtn color="primary" prepend-icon="ri-add-line" @click="openCreateDialog">
         Tambah Survei
       </VBtn>
     </VCardTitle>
@@ -135,119 +160,133 @@ const addNewItem = () => {
       <VTextField
         v-model="search"
         placeholder="Cari survei..."
+        prepend-inner-icon="ri-search-line"
         density="compact"
         hide-details
+        clearable
         class="mb-4"
       />
 
-      <VTable>
-        <thead>
-          <tr>
-            <th>Nama</th>
-            <th>Tipe Periode</th>
-            <th>Periode</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in surveiList" :key="item.id">
-            <td>{{ item.nama }}</td>
-            <td>{{ item.tipe_periode?.nama_tipe }}</td>
-            <td>{{ item.periode?.nama_periode }}</td>
-            <td>
-              <VBtn
-                icon
-                variant="text"
-                size="small"
-                color="primary"
-                @click="editItem(item)"
-              >
-                <VIcon size="20">mdi-pencil-outline</VIcon>
-              </VBtn>
-              <VBtn
-                icon
-                variant="text"
-                size="small"
-                color="error"
-                @click="deleteItem(item)"
-              >
-                <VIcon size="20">mdi-delete-outline</VIcon>
-              </VBtn>
-            </td>
-          </tr>
-        </tbody>
-      </VTable>
-    </VCardText>
-
-    <!-- Edit Dialog -->
-    <VDialog v-model="editDialog" max-width="600">
-      <VCard>
-        <VCardTitle>
-          {{ isCreating ? 'Tambah Survei' : 'Edit Survei' }}
-        </VCardTitle>
-        <VCardText>
-          <VForm @submit.prevent="isCreating ? handleCreate() : handleUpdate()">
-            <VTextField
-              v-model="editedItem.nama"
-              label="Nama Survei"
-              required
-            />
-            
-            <VSelect
-              v-model="editedItem.tipe_periode_id"
-              :items="tipePeriodeList"
-              item-title="nama_tipe"
-              item-value="id"
-              label="Tipe Periode"
-            />
-
-            <VSelect
-              v-model="editedItem.periode_id"
-              :items="filteredPeriodeList"
-              item-title="nama_periode"
-              item-value="id"
-              label="Periode"
-              :disabled="!editedItem.tipe_periode_id"
-            />
-
-            <div class="d-flex justify-end gap-3 mt-3">
-              <VBtn @click="editDialog = false">
-                Batal
-              </VBtn>
-              <VBtn
-                color="primary"
-                type="submit"
-                :loading="loading"
-              >
-                {{ isCreating ? 'Simpan' : 'Update' }}
-              </VBtn>
-            </div>
-          </VForm>
-        </VCardText>
-      </VCard>
-    </VDialog>
-
-    <!-- Delete Dialog -->
-    <VDialog v-model="deleteDialog" max-width="500">
-      <VCard>
-        <VCardTitle>Hapus Survei</VCardTitle>
-        <VCardText>
-          Apakah Anda yakin ingin menghapus survei ini?
-        </VCardText>
-        <VCardActions>
-          <VSpacer />
-          <VBtn @click="deleteDialog = false">
-            Batal
-          </VBtn>
+      <VDataTable
+        :headers="[
+          { title: 'Nama Survei', key: 'nama', sortable: true },
+          { title: 'Tipe Periode', key: 'tipe_periode_data.nama_tipe', sortable: true },
+          { title: 'Aksi', key: 'actions', sortable: false }
+        ]"
+        :items="filteredSurveiList"
+        :loading="loading"
+        class="mt-4"
+      >
+        <template #item.tipe_periode_data.nama_tipe="{ item }">
+          {{ item.tipe_periode_data?.nama_tipe || '-' }}
+        </template>
+        
+        <template #item.actions="{ item }">
           <VBtn
+            icon="ri-edit-line"
+            variant="text"
+            size="small"
+            color="primary"
+            class="me-2"
+            @click="openEditDialog(item)"
+          />
+          <VBtn
+            icon="ri-delete-bin-line"
+            variant="text"
+            size="small"
             color="error"
-            @click="handleDelete"
-            :loading="loading"
-          >
-            Hapus
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
+            @click="openDeleteDialog(item)"
+          />
+        </template>
+      </VDataTable>
+    </VCardText>
   </VCard>
+
+  <!-- Edit Dialog -->
+  <VDialog v-model="editDialog" max-width="600">
+    <VCard>
+      <VCardTitle>
+        {{ isCreating ? 'Tambah Survei' : 'Edit Survei' }}
+      </VCardTitle>
+      <VCardText>
+        <VForm @submit.prevent="isCreating ? handleCreate() : handleUpdate()">
+          <VTextField
+            v-model="editedItem.nama"
+            label="Nama Survei"
+            :rules="[v => !!v || 'Nama survei harus diisi']"
+            required
+            class="mb-4"
+          />
+          
+          <VSelect
+            v-model="editedItem.tipe_periode"
+            :items="tipePeriodeList"
+            item-title="nama_tipe"
+            item-value="id"
+            label="Tipe Periode"
+            :rules="[v => v !== null || 'Tipe periode harus dipilih']"
+            required
+            clearable
+            class="mb-4"
+          />
+
+          <div class="d-flex justify-end gap-3">
+            <VBtn @click="editDialog = false">
+              Batal
+            </VBtn>
+            <VBtn
+              color="primary"
+              type="submit"
+              :loading="loading"
+              :disabled="!editedItem.nama || editedItem.tipe_periode === null"
+            >
+              {{ isCreating ? 'Simpan' : 'Update' }}
+            </VBtn>
+          </div>
+        </VForm>
+      </VCardText>
+    </VCard>
+  </VDialog>
+
+  <!-- Delete Dialog -->
+  <VDialog v-model="deleteDialog" max-width="500">
+    <VCard>
+      <VCardTitle>Konfirmasi Hapus</VCardTitle>
+      <VCardText>
+        Apakah Anda yakin ingin menghapus survei ini?
+      </VCardText>
+      <VCardActions>
+        <VSpacer />
+        <VBtn @click="deleteDialog = false">
+          Batal
+        </VBtn>
+        <VBtn
+          color="error"
+          @click="handleDelete"
+          :loading="loading"
+        >
+          Hapus
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <!-- Snackbar for notifications -->
+  <VSnackbar
+    v-model="snackbar"
+    :color="snackbarColor"
+    timeout="3000"
+    location="top"
+  >
+    {{ snackbarMessage }}
+    <template #actions>
+      <VBtn
+        color="white"
+        variant="text"
+        @click="snackbar = false"
+      >
+        Tutup
+      </VBtn>
+    </template>
+  </VSnackbar>
 </template>

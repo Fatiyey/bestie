@@ -14,7 +14,7 @@ export const useSurveiService = () => {
         .from('srv_survei')
         .select(`
           *,
-          tipe_periode:srv_tipe_periode!tipe_periode_id (
+          tipe_periode_data:srv_tipe_periode!tipe_periode (
             id,
             nama_tipe
           )
@@ -34,14 +34,29 @@ export const useSurveiService = () => {
     try {
       loading.value = true
       error.value = null
+      
+      // Pastikan payload tidak mengandung id
+      const insertPayload = {
+        nama: payload.nama,
+        tipe_periode: payload.tipe_periode
+      }
+      
       const { data, error: err } = await supabase
         .from('srv_survei')
-        .insert([payload])
-        .select()
+        .insert([insertPayload])
+        .select(`
+          *,
+          tipe_periode_data:srv_tipe_periode!tipe_periode (
+            id,
+            nama_tipe
+          )
+        `)
+      
       if (err) throw err
       return data
     } catch (err: any) {
       error.value = err.message
+      console.error('Error creating survei:', err)
       return null
     } finally {
       loading.value = false
@@ -52,15 +67,24 @@ export const useSurveiService = () => {
     try {
       loading.value = true
       error.value = null
+      
       const { data, error: err } = await supabase
         .from('srv_survei')
         .update(payload)
         .eq('id', id)
-        .select()
+        .select(`
+          *,
+          tipe_periode_data:srv_tipe_periode!tipe_periode (
+            id,
+            nama_tipe
+          )
+        `)
+      
       if (err) throw err
       return data
     } catch (err: any) {
       error.value = err.message
+      console.error('Error updating survei:', err)
       return null
     } finally {
       loading.value = false
@@ -75,10 +99,12 @@ export const useSurveiService = () => {
         .from('srv_survei')
         .delete()
         .eq('id', id)
+      
       if (err) throw err
       return true
     } catch (err: any) {
       error.value = err.message
+      console.error('Error deleting survei:', err)
       return false
     } finally {
       loading.value = false

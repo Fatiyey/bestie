@@ -120,7 +120,7 @@ const openEditDialog = (item: Periode) => {
             icon="ri-delete-bin-line"
             size="small"
             color="error"
-            @click="() => { editedId.value = item.id; deleteDialog.value = true }"
+            @click="() => { editedId = item.id; deleteDialog = true }"
           />
         </template>
       </v-data-table>
