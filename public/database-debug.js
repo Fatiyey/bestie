@@ -149,18 +149,121 @@ window.testChatService = async function() {
   }
 }
 
-console.log(`
-🧪 Database debug functions loaded!
+window.addTestSurveyData = async function() {
+  console.log('🚀 Starting to add test survey data...')
+  
+  try {
+    const { supabase } = await import('./src/plugins/supabase.js')
+    
+    // First add tipe periode
+    const testTipePeriode = [
+      { id: 1, nama_tipe: 'Harian' },
+      { id: 2, nama_tipe: 'Mingguan' },
+      { id: 3, nama_tipe: 'Bulanan' }
+    ]
+    
+    console.log('📝 Adding test tipe periode data...')
+    const { data: tipePeriodeData, error: tipePeriodeError } = await supabase
+      .from('srv_tipe_periode')
+      .upsert(testTipePeriode)
+      .select()
+    
+    if (tipePeriodeError) {
+      console.error('❌ Error adding tipe periode:', tipePeriodeError)
+      return false
+    }
+    
+    console.log('✅ Added tipe periode data:', tipePeriodeData)
+    
+    // Add parent survei
+    const testSurvei = [
+      {
+        id: 1,
+        nama: 'Survei Kepuasan Layanan',
+        tipe_periode: 1, // Harian
+        is_parent: true,
+        parent_survei_id: null
+      },
+      {
+        id: 2,
+        nama: 'Survei Kinerja Pegawai',
+        tipe_periode: 3, // Bulanan
+        is_parent: true,
+        parent_survei_id: null
+      }
+    ]
+    
+    console.log('📝 Adding test survei data...')
+    const { data: surveiData, error: surveiError } = await supabase
+      .from('srv_survei')
+      .upsert(testSurvei)
+      .select()
+    
+    if (surveiError) {
+      console.error('❌ Error adding survei:', surveiError)
+      return false
+    }
+    
+    console.log('✅ Added survei data:', surveiData)
+    
+    // Add survei rinci
+    const testSurveiRinci = [
+      {
+        id: 1,
+        nama: 'Layanan Informasi',
+        survei_id: 1 // Child of Survei Kepuasan Layanan
+      },
+      {
+        id: 2,
+        nama: 'Layanan Pengaduan',
+        survei_id: 1 // Child of Survei Kepuasan Layanan
+      },
+      {
+        id: 3,
+        nama: 'Kinerja Bulan Ini',
+        survei_id: 2 // Child of Survei Kinerja Pegawai
+      }
+    ]
+    
+    console.log('📝 Adding test survei rinci data...')
+    const { data: surveiRinciData, error: surveiRinciError } = await supabase
+      .from('srv_survei_rinci')
+      .upsert(testSurveiRinci)
+      .select()
+    
+    if (surveiRinciError) {
+      console.error('❌ Error adding survei rinci:', surveiRinciError)
+      return false
+    }
+    
+    console.log('✅ Added survei rinci data:', surveiRinciData)
+      // Add kegiatan
+    const testKegiatan = [
+      {
+        id: 1,
+        kegiatan_id: 1,
+        jabatan: 'Ketua Tim',
+        jenis_pekerjaan: 'Koordinasi Tim',
+        satuan: 'Kegiatan',
+        honor: 1000000,
+        is_active: true
+      }
+    ]
 
-Available functions:
-  checkDatabaseConnection() - Test basic database connection
-  checkTablesStructure() - Check if tables exist and their structure
-  getAllTableData() - Get all data from contacts and messages tables
-  testChatService() - Test ChatService functions
-
-Example usage:
-  await checkDatabaseConnection()
-  await checkTablesStructure()
-  await getAllTableData()
-  await testChatService()
-`)
+    const { data: kegiatanData, error: kegiatanError } = await supabase
+      .from('srv_kegiatan')
+      .upsert(testKegiatan)
+      .select()
+    
+    if (kegiatanError) {
+      console.error('❌ Error adding kegiatan:', kegiatanError)
+      return false
+    }
+    
+    console.log('✅ Added kegiatan data:', kegiatanData)
+    return true
+  } catch (error) {
+    console.error('❌ Error in addTestData:', error)
+    return false
+  }
+}

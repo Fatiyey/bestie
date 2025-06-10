@@ -77,11 +77,16 @@ const { authState } = useAuthService()
         title: 'Periode',
         to: '/manajemen-kegiatan/periode',
       }"
-    />
-    <VerticalNavLink
+    />    <VerticalNavLink
       :item="{
         title: 'Tipe Periode',
         to: '/manajemen-kegiatan/tipe-periode',
+      }"
+    />
+    <VerticalNavLink
+      :item="{
+        title: 'Kegiatan',
+        to: '/manajemen-kegiatan/kegiatan', 
       }"
     />
   </VerticalNavGroup>

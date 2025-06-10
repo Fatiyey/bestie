@@ -1,12 +1,11 @@
-// Test data console function
-// You can run this in browser console to add test data
+// Test data helper functions
+// You can run these functions in browser console to add/clear test data
 
-window.addTestChatData = async function() {
-  console.log('🚀 Starting to add test chat data...')
+window.insertSurveyData = async function() {
+  console.log('🔄 Inserting test survey data...')
   
   try {
-    // Import supabase from your app (adjust the import path as needed)
-    const { supabase } = await import('./src/plugins/supabase.js')
+    const { supabase } = await import('../src/plugins/supabase.js')
     
     console.log('📡 Supabase client loaded successfully')
     
@@ -166,6 +165,111 @@ window.addTestChatData = async function() {
       console.log('✅ Successfully inserted messages:', insertedMessages)
     }
 
+    // Survey test data insertion
+    try {
+      // 1. Add srv_tipe_periode data
+      const testTipePeriode = [
+        {
+          id: 1,
+          nama_tipe: 'Bulanan'
+        },
+        {
+          id: 2,
+          nama_tipe: 'Triwulanan'
+        }
+      ]
+
+      const { data: tipePeriodeData, error: tipePeriodeError } = await supabase
+        .from('srv_tipe_periode')
+        .upsert(testTipePeriode)
+        .select()
+      
+      if (tipePeriodeError) {
+        console.error('❌ Error adding tipe periode:', tipePeriodeError)
+        return false
+      }
+      console.log('✅ Added tipe periode data:', tipePeriodeData)
+
+      // 2. Add srv_survei data
+      const testSurvei = [
+        {
+          id: 1,
+          nama: 'Survei Ekonomi',
+          tipe_periode: 1, // Bulanan
+          is_parent: true,
+          parent_survei_id: null
+        },
+        {
+          id: 2,
+          nama: 'Sub-survei Ekonomi A',
+          tipe_periode: 1,
+          is_parent: false,
+          parent_survei_id: 1
+        }
+      ]
+
+      const { data: surveiData, error: surveiError } = await supabase
+        .from('srv_survei')
+        .upsert(testSurvei)
+        .select()
+      
+      if (surveiError) {
+        console.error('❌ Error adding survei:', surveiError)
+        return false
+      }
+      console.log('✅ Added survei data:', surveiData)
+
+      // 3. Add srv_survei_rinci data
+      const testSurveiRinci = [
+        {
+          id: 1,
+          nama: 'Pengumpulan Data',
+          survei_id: 2 // Connected to Sub-survei Ekonomi A
+        }
+      ]
+
+      const { data: surveiRinciData, error: surveiRinciError } = await supabase
+        .from('srv_survei_rinci')
+        .upsert(testSurveiRinci)
+        .select()
+      
+      if (surveiRinciError) {
+        console.error('❌ Error adding survei rinci:', surveiRinciError)
+        return false
+      }
+      console.log('✅ Added survei rinci data:', surveiRinciData)
+
+      // 4. Add srv_kegiatan data
+      const testKegiatan = [
+        {
+          id: 1,
+          kegiatan_id: 1, // Connected to srv_survei_rinci id 1
+          jabatan: 'Ketua Tim',
+          jenis_pekerjaan: 'Koordinasi Tim Lapangan',
+          satuan: 'Kegiatan',
+          honor: 1000000,
+          is_active: true
+        }
+      ]
+
+      const { data: kegiatanData, error: kegiatanError } = await supabase
+        .from('srv_kegiatan')
+        .upsert(testKegiatan)
+        .select()
+      
+      if (kegiatanError) {
+        console.error('❌ Error adding kegiatan:', kegiatanError)
+        return false
+      }
+      console.log('✅ Added kegiatan data:', kegiatanData)
+
+      console.log('✅ All test data inserted successfully!')
+      return true
+    } catch (error) {
+      console.error('❌ Error inserting test data:', error)
+      return false
+    }
+
     console.log('🎉 Test data setup completed successfully!')
     return true
 
@@ -210,6 +314,37 @@ window.clearTestChatData = async function() {
     console.log('🎉 Test data cleared successfully!')
     return true
     
+  } catch (error) {
+    console.error('❌ Error clearing test data:', error)
+    return false
+  }
+}
+
+// Function to clear all test data
+window.clearSurveyData = async function() {
+  console.log('🔄 Clearing survey test data...')
+  
+  try {
+    const { supabase } = await import('../src/plugins/supabase.js')
+
+    // Delete in reverse order of dependencies
+    const tables = ['srv_kegiatan', 'srv_survei_rinci', 'srv_survei', 'srv_tipe_periode']
+    
+    for (const table of tables) {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .neq('id', 0) // Delete all records
+      
+      if (error) {
+        console.error(`❌ Error clearing ${table}:`, error)
+        return false
+      }
+      console.log(`✅ Cleared ${table} data`)
+    }
+
+    console.log('✅ All test data cleared successfully!')
+    return true
   } catch (error) {
     console.error('❌ Error clearing test data:', error)
     return false

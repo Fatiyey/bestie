@@ -73,15 +73,29 @@ export const routes = [
         path: 'manajemen-kegiatan/periode',
         component: () => import('@/features/manajemen-kegiatan/views/PeriodePage.vue'),
         meta: { requiresAuth: true },
-      },
-      {
+      },      {
         path: 'manajemen-kegiatan/survei',
         component: () => import('@/features/manajemen-kegiatan/views/SurveiPage.vue'),
         meta: { requiresAuth: true },
       },
       {
+        path: 'manajemen-kegiatan/kegiatan',
+        component: () => import('@/features/manajemen-kegiatan/views/KegiatanPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'manajemen-kegiatan/debug',
+        component: () => import('@/features/manajemen-kegiatan/views/DebugPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'manajemen-kegiatan/tipe-periode',
         component: () => import('@/features/manajemen-kegiatan/views/TipePeriodePage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'debug',
+        component: () => import('@/features/manajemen-kegiatan/views/TestDebugPage.vue'),
         meta: { requiresAuth: true },
       },
     ],
